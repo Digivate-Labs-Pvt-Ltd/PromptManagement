@@ -12,6 +12,7 @@ type RouterConfig struct {
 	Health     *HealthHandler
 	Auth       *AuthHandler
 	Management *ManagementHandler
+	Item       *ItemHandler
 }
 
 // NewRouter registers all routes and returns the central mux.
@@ -31,11 +32,19 @@ func NewRouter(cfg RouterConfig) *http.ServeMux {
 		return middleware.Authenticate(cfg.Config, next)
 	}
 
+	// Group Endpoints
 	mux.Handle("/prompts/create", authMW(cfg.Management.Create))
 	mux.Handle("/prompts/update", authMW(cfg.Management.Update))
 	mux.Handle("/prompts/get", authMW(cfg.Management.Get))
 	mux.Handle("/prompts/list", authMW(cfg.Management.List))
 	mux.Handle("/prompts/delete", authMW(cfg.Management.Delete))
+
+	// Item Endpoints
+	mux.Handle("/prompts/items/add", authMW(cfg.Item.Add))
+	mux.Handle("/prompts/items/list", authMW(cfg.Item.List))
+	mux.Handle("/prompts/items/get", authMW(cfg.Item.Get))
+	mux.Handle("/prompts/items/promote", authMW(cfg.Item.Promote))
+	mux.Handle("/prompts/items/archive", authMW(cfg.Item.Archive))
 
 	return mux
 }

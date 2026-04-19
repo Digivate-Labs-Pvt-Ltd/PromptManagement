@@ -48,6 +48,10 @@ func main() {
 	mgmtService := service.NewManagementService(mgmtRepo)
 	mgmtHandler := handler.NewManagementHandler(mgmtService)
 
+	itemRepo := postgres.NewItemRepository(dbPool)
+	itemService := service.NewItemService(itemRepo)
+	itemHandler := handler.NewItemHandler(itemService)
+
 	healthHandler := handler.NewHealthHandler(dbPool)
 
 	// 5. Setup Router
@@ -56,6 +60,7 @@ func main() {
 		Health:     healthHandler,
 		Auth:       authHandler,
 		Management: mgmtHandler,
+		Item:       itemHandler,
 	})
 
 	// 6. Apply Global Middleware
