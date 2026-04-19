@@ -43,12 +43,19 @@ func main() {
 	userRepo := postgres.NewUserRepository(dbPool)
 	authService := service.NewAuthService(cfg, userRepo)
 	authHandler := handler.NewAuthHandler(authService)
+
+	mgmtRepo := postgres.NewManagementRepository(dbPool)
+	mgmtService := service.NewManagementService(mgmtRepo)
+	mgmtHandler := handler.NewManagementHandler(mgmtService)
+
 	healthHandler := handler.NewHealthHandler(dbPool)
 
 	// 5. Setup Router
 	mux := handler.NewRouter(handler.RouterConfig{
-		Health: healthHandler,
-		Auth:   authHandler,
+		Config:     cfg,
+		Health:     healthHandler,
+		Auth:       authHandler,
+		Management: mgmtHandler,
 	})
 
 	// 6. Apply Global Middleware

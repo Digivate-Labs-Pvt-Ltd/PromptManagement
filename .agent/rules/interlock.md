@@ -26,6 +26,7 @@ All feature development or bug fixes MUST follow this strict 9-step sequence:
 - **NEVER create a Pull Request without comprehensive testing/verification.**
 - **NEVER skip the PR process for any sub-issue or task.**
 - **NEVER commit logic without accompanying test cases.**
+- **NEVER close a GitHub ticket/issue before the corresponding Pull Request has been merged into the default branch.**
 
 ## 3. Architectural Constraints (CRITICAL)
 
