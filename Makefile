@@ -1,21 +1,26 @@
 -include .env
 export
 
-.PHONY: run docker-up docker-down migrate-up migrate-down test help
+.PHONY: build run docker-up docker-down migrate-up migrate-down test lint help
 
 help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Targets:"
+	@echo "  build         Build the API server"
 	@echo "  run           Run the API server"
 	@echo "  docker-up     Start infrastructure (Postgres)"
 	@echo "  docker-down   Stop infrastructure"
 	@echo "  migrate-up    Apply all migrations"
 	@echo "  migrate-down  Rollback last migration"
 	@echo "  test          Run all tests"
+	@echo "  lint          Run golangci-lint"
 
-run:
-	go run cmd/api/main.go
+build:
+	go build -o tmp/api ./cmd/api
+
+run: build
+	./tmp/api
 
 docker-up:
 	docker-compose up -d
@@ -31,3 +36,6 @@ migrate-down:
 
 test:
 	go test -v ./...
+
+lint:
+	golangci-lint run

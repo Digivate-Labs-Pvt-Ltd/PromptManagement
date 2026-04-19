@@ -13,15 +13,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"prompt-management/internal/config"
 	"prompt-management/internal/handler"
+	"prompt-management/internal/middleware"
 	"prompt-management/internal/repository/postgres"
 	"prompt-management/internal/service"
 )
 
 type application struct {
-	config  *config.Config
-	logger  *slog.Logger
-	db      *pgxpool.Pool
-	auth    *handler.AuthHandler
+	config *config.Config
+	logger *slog.Logger
+	db     *pgxpool.Pool
 }
 
 func main() {
@@ -43,24 +43,29 @@ func main() {
 	userRepo := postgres.NewUserRepository(dbPool)
 	authService := service.NewAuthService(cfg, userRepo)
 	authHandler := handler.NewAuthHandler(authService)
+	healthHandler := handler.NewHealthHandler(dbPool)
 
-	app := &application{
-		config: cfg,
-		logger: logger,
-		db:     dbPool,
-		auth:   authHandler,
-	}
+	// 5. Setup Router
+	mux := handler.NewRouter(handler.RouterConfig{
+		Health: healthHandler,
+		Auth:   authHandler,
+	})
 
-	// 4. Setup Server
+	// 6. Apply Global Middleware
+	// Order: Recovery -> Logger -> Mux
+	var handler http.Handler = mux
+	handler = middleware.LogRequest(logger)(handler)
+	handler = middleware.RecoverPanic(logger)(handler)
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
-		Handler:      app.routes(),
+		Handler:      handler,
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 
-	// 5. Graceful Shutdown Channel
+	// 7. Graceful Shutdown Channel
 	shutdownError := make(chan error)
 
 	go func() {
@@ -76,7 +81,7 @@ func main() {
 		shutdownError <- srv.Shutdown(ctx)
 	}()
 
-	// 6. Start Server
+	// 8. Start Server
 	logger.Info("starting server", "addr", srv.Addr)
 	err = srv.ListenAndServe()
 	if err != http.ErrServerClosed {
@@ -84,7 +89,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 7. Wait for Shutdown Result
+	// 9. Wait for Shutdown Result
 	err = <-shutdownError
 	if err != nil {
 		logger.Error("error during graceful shutdown", "error", err)
