@@ -73,7 +73,7 @@ func (m *MockItemStore) List(ctx context.Context, filters domain.ItemListFilters
 	var result []*domain.PromptItem
 	for _, item := range m.items {
 		if item.ManagementID == filters.ManagementID {
-			if filters.Status == "" || item.Status == filters.Status {
+			if filters.Status == nil || item.Status == *filters.Status {
 				result = append(result, item)
 			}
 		}

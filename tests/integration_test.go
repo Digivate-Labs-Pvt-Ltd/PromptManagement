@@ -13,7 +13,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"prompt-management/internal/config"
-	"prompt-management/internal/repository/postgres"
+	pgrepo "prompt-management/internal/repository/postgres"
 	"prompt-management/internal/service"
 	"prompt-management/pkg/auth"
 )
@@ -113,9 +113,9 @@ func TestIntegration_HappyPath(t *testing.T) {
 		JWTSecret: "test-secret-integration",
 	}
 
-	authRepo := postgres.NewUserStore(pool)
-	mgmtRepo := postgres.NewManagementStore(pool)
-	itemRepo := postgres.NewItemStore(pool)
+	authRepo := pgrepo.NewUserRepository(pool)
+	mgmtRepo := pgrepo.NewManagementRepository(pool)
+	itemRepo := pgrepo.NewItemRepository(pool)
 
 	authSvc := service.NewAuthService(cfg, authRepo)
 	mgmtSvc := service.NewManagementService(mgmtRepo)

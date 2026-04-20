@@ -55,9 +55,6 @@ func (m *MockManagementStore) List(ctx context.Context, filters domain.ListFilte
 		if filters.UseCase != "" && pm.UseCase != filters.UseCase {
 			match = false
 		}
-		if filters.Category != "" && pm.Category != filters.Category {
-			match = false
-		}
 		if match {
 			result = append(result, pm)
 		}
