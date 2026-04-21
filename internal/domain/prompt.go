@@ -67,6 +67,7 @@ type ItemStore interface {
 	GetLatestVersionByGroupAndKey(ctx context.Context, managementID string, questionKey string) (*string, error)
 	List(ctx context.Context, filters ItemListFilters) ([]*PromptItem, int, error)
 	Promote(ctx context.Context, managementID string, itemID string) error
+	GetActiveItemsByManagementIDs(ctx context.Context, ids []string) ([]*PromptItem, error)
 	Archive(ctx context.Context, id string) error
 }
 

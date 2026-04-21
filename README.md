@@ -137,6 +137,15 @@ The `Management Groups` serve as the absolute parent logic directories.
   ```
   *Note: Prompts created via this endpoint are automatically promoted to `active` status (`v1.0.0`).*
 
+- **`POST /prompts/list-full`** - Fetches a paginated list of all management groups nested with their current **Active** prompt items.
+  ```bash
+  curl -X POST http://localhost:8080/prompts/list-full \
+       -H "Content-Type: application/json" \
+       -H "Authorization: Bearer <your-jwt-token>" \
+       -d '{"client":"Amazon", "page":1, "per_page":10}'
+  ```
+  *Note: This endpoint is optimized for bulk editing and state management in the UI.*
+
 ### Prompt Items (Versions)
 Prompt `Items` operate within a given Management Group, housing infinite immutable execution iterations.
 - **`POST /prompts/items/add`** - Add a target representation triggering automated `Version Auto-bumping` (`v.1.0.X`).

@@ -85,7 +85,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"client\": \"Amazon\",\n    \"use_case\": \"Support\",\n    \"document_type\": \"JSON\",\n    \"category\": \"Dev\",\n    \"stage_name\": \"Alpha\",\n    \"items\": [\n        {\n            \"question_key\": \"Q1\",\n            \"prompt_text\": \"Summarize this text\"\n        },\n        {\n            \"question_key\": \"Q2\",\n            \"prompt_text\": \"Extract names\"\n        }\n    ]\n}",
+							"raw": "{\n    \"client\": \"Amazon\",\n    \"use_case\": \"Support\",\n    \"document_type\": \"JSON\",\n    \"category\": \"Dev\",\n    \"stage_name\": \"Alpha\",\n    \"items\": [\n        {\n            \"question_key\": \"Q1\",\n            \"prompt_text\": \"Summarize this text\",\n            \"vector_prompt\": \"Search vector for Q1...\",\n            \"generation_config\": {\n                \"temperature\": 0.7,\n                \"max_tokens\": 500\n            },\n            \"response_schema\": {\n                \"type\": \"object\",\n                \"properties\": {\n                    \"summary\": {\"type\": \"string\"}\n                }\n            },\n            \"top_k\": 5,\n            \"ranking_method\": \"cosine\",\n            \"change_log\": \"Initial bulk seed\"\n        },\n        {\n            \"question_key\": \"Q2\",\n            \"prompt_text\": \"Extract names\",\n            \"change_log\": \"Initial bulk seed\"\n        }\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -100,6 +100,43 @@
 							"path": [
 								"prompts",
 								"create-full"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Full (Aggregated)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"client\": \"Amazon\",\n    \"page\": 1,\n    \"per_page\": 10\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/prompts/list-full",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"prompts",
+								"list-full"
 							]
 						}
 					},

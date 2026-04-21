@@ -128,6 +128,46 @@ func (s *ManagementService) List(ctx context.Context, filters domain.ListFilters
 	return s.repo.List(ctx, filters)
 }
 
+func (s *ManagementService) ListFull(ctx context.Context, filters domain.ListFilters) ([]*domain.PromptManagement, int, error) {
+	// 1. Fetch groups
+	groups, total, err := s.List(ctx, filters)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(groups) == 0 {
+		return groups, 0, nil
+	}
+
+	// 2. Collect IDs for batch fetching
+	ids := make([]string, len(groups))
+	for i, g := range groups {
+		ids[i] = g.ID
+	}
+
+	// 3. Batch fetch active items for these groups
+	items, err := s.itemRepo.GetActiveItemsByManagementIDs(ctx, ids)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 4. Map items back to their parent groups
+	itemMap := make(map[string][]*domain.PromptItem)
+	for _, item := range items {
+		itemMap[item.ManagementID] = append(itemMap[item.ManagementID], item)
+	}
+
+	for _, g := range groups {
+		if val, ok := itemMap[g.ID]; ok {
+			g.Prompts = val
+		} else {
+			g.Prompts = []*domain.PromptItem{} // Ensure empty slice instead of nil for JSON
+		}
+	}
+
+	return groups, total, nil
+}
+
 func (s *ManagementService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }

@@ -191,3 +191,28 @@ func (h *ManagementHandler) CreateFull(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusCreated, pm)
 }
 
+// ListFull handles the POST /prompts/list-full action.
+func (h *ManagementHandler) ListFull(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var input domain.ListFilters
+	if err := validator.DecodeAndValidate(r, &input); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	groups, total, err := h.service.ListFull(r.Context(), input)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "failed to list full prompt groups")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"groups": groups,
+		"total":  total,
+	})
+}
+

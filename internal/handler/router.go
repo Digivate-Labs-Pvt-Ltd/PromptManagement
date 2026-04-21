@@ -40,6 +40,7 @@ func NewRouter(cfg RouterConfig) *http.ServeMux {
 	mux.Handle("/prompts/update", authMW(cfg.Management.Update))
 	mux.Handle("/prompts/get", authMW(cfg.Management.Get))
 	mux.Handle("/prompts/list", authMW(cfg.Management.List))
+	mux.Handle("/prompts/list-full", authMW(cfg.Management.ListFull))
 	mux.Handle("/prompts/delete", authMW(cfg.Management.Delete))
 
 	// Item Endpoints
