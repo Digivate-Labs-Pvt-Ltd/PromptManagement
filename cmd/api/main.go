@@ -64,8 +64,9 @@ func main() {
 	})
 
 	// 6. Apply Global Middleware
-	// Order: Recovery -> Logger -> Mux
+	// Order: Recovery -> Logger -> CORS -> Mux
 	var handler http.Handler = mux
+	handler = middleware.EnableCORS(handler)
 	handler = middleware.LogRequest(logger)(handler)
 	handler = middleware.RecoverPanic(logger)(handler)
 
