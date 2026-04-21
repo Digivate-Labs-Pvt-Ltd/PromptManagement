@@ -54,7 +54,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 type loginRequest struct {
-	Identifier string `json:"identifier"`
+	Identifier string `json:"username"`
 	Password   string `json:"password"`
 }
 

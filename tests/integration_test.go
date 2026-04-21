@@ -68,7 +68,8 @@ func TestIntegration_HappyPath(t *testing.T) {
 		full_name VARCHAR(255) NOT NULL,
 		password_hash VARCHAR(255) NOT NULL,
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		deleted_at TIMESTAMP WITH TIME ZONE
 	);
 
 	CREATE TABLE prompt_management (
@@ -78,9 +79,11 @@ func TestIntegration_HappyPath(t *testing.T) {
 		document_type VARCHAR(100) NOT NULL,
 		category VARCHAR(100) NOT NULL,
 		stage_name VARCHAR(100) NOT NULL,
-		created_by_id UUID REFERENCES users(id),
+		active_item_id UUID,
+		created_by UUID REFERENCES users(id),
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		deleted_at TIMESTAMP WITH TIME ZONE
 	);
 
 	CREATE TABLE prompt_item (
@@ -96,9 +99,10 @@ func TestIntegration_HappyPath(t *testing.T) {
 		version_no VARCHAR(20) NOT NULL,
 		status VARCHAR(20) NOT NULL DEFAULT 'draft',
 		change_log TEXT,
-		created_by_id UUID REFERENCES users(id),
+		created_by UUID REFERENCES users(id),
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		deleted_at TIMESTAMP WITH TIME ZONE,
 		UNIQUE (management_id, question_key, version_no)
 	);
 	`
@@ -239,6 +243,7 @@ func TestIntegration_BulkCreateAndAggregatedFetch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get connection string: %v", err)
 	}
+	time.Sleep(2 * time.Second)
 
 	pool, err := pgxpool.New(ctx, connStr)
 	if err != nil {
@@ -255,7 +260,8 @@ func TestIntegration_BulkCreateAndAggregatedFetch(t *testing.T) {
 		full_name VARCHAR(255) NOT NULL,
 		password_hash VARCHAR(255) NOT NULL,
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		deleted_at TIMESTAMP WITH TIME ZONE
 	);
 
 	CREATE TABLE prompt_management (
@@ -266,9 +272,10 @@ func TestIntegration_BulkCreateAndAggregatedFetch(t *testing.T) {
 		category VARCHAR(100) NOT NULL,
 		stage_name VARCHAR(100) NOT NULL,
 		active_item_id UUID,
-		created_by_id UUID REFERENCES users(id),
+		created_by UUID REFERENCES users(id),
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		deleted_at TIMESTAMP WITH TIME ZONE
 	);
 
 	CREATE TABLE prompt_item (
@@ -284,9 +291,10 @@ func TestIntegration_BulkCreateAndAggregatedFetch(t *testing.T) {
 		version_no VARCHAR(20) NOT NULL,
 		status VARCHAR(20) NOT NULL DEFAULT 'draft',
 		change_log TEXT,
-		created_by_id UUID REFERENCES users(id),
+		created_by UUID REFERENCES users(id),
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		deleted_at TIMESTAMP WITH TIME ZONE,
 		UNIQUE (management_id, question_key, version_no)
 	);
 	`
