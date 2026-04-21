@@ -45,10 +45,10 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService)
 
 	mgmtRepo := postgres.NewManagementRepository(dbPool)
-	mgmtService := service.NewManagementService(mgmtRepo)
+	itemRepo := postgres.NewItemRepository(dbPool)
+	mgmtService := service.NewManagementService(dbPool, mgmtRepo, itemRepo)
 	mgmtHandler := handler.NewManagementHandler(mgmtService)
 
-	itemRepo := postgres.NewItemRepository(dbPool)
 	itemService := service.NewItemService(itemRepo)
 	itemHandler := handler.NewItemHandler(itemService)
 

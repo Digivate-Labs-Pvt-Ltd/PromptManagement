@@ -19,6 +19,8 @@ func NewMockManagementStore() *MockManagementStore {
 	}
 }
 
+
+
 func (m *MockManagementStore) Insert(ctx context.Context, pm *domain.PromptManagement) error {
 	pm.ID = "generated-uuid-mgmt"
 	now := time.Now()
@@ -72,7 +74,8 @@ func (m *MockManagementStore) Delete(ctx context.Context, id string) error {
 
 func TestManagementService_Create(t *testing.T) {
 	store := NewMockManagementStore()
-	svc := NewManagementService(store)
+	itemStore := NewMockItemStore()
+	svc := NewManagementService(nil, store, itemStore)
 	ctx := context.Background()
 
 	userID := "user-123"
@@ -111,9 +114,33 @@ func TestManagementService_Create(t *testing.T) {
 	})
 }
 
+func TestManagementService_GetByID_Aggregated(t *testing.T) {
+	store := NewMockManagementStore()
+	itemStore := NewMockItemStore()
+	svc := NewManagementService(nil, store, itemStore)
+	ctx := context.Background()
+
+	// Seed data
+	id := "group-1"
+	store.data[id] = &domain.PromptManagement{ID: id, Client: "Test"}
+	itemStore.items["item-1"] = &domain.PromptItem{ID: "item-1", ManagementID: id, PromptText: "P1"}
+	itemStore.items["item-2"] = &domain.PromptItem{ID: "item-2", ManagementID: id, PromptText: "P2"}
+
+	t.Run("Fetch with Items", func(t *testing.T) {
+		pm, err := svc.GetByID(ctx, id)
+		if err != nil {
+			t.Fatalf("failed to get: %v", err)
+		}
+		if len(pm.Prompts) != 2 {
+			t.Errorf("expected 2 prompts, got %d", len(pm.Prompts))
+		}
+	})
+}
+
 func TestManagementService_Update(t *testing.T) {
 	store := NewMockManagementStore()
-	svc := NewManagementService(store)
+	itemStore := NewMockItemStore()
+	svc := NewManagementService(nil, store, itemStore)
 	ctx := context.Background()
 
 	// Insert initial
@@ -161,7 +188,8 @@ func TestManagementService_Update(t *testing.T) {
 
 func TestManagementService_List(t *testing.T) {
 	store := NewMockManagementStore()
-	svc := NewManagementService(store)
+	itemStore := NewMockItemStore()
+	svc := NewManagementService(nil, store, itemStore)
 	ctx := context.Background()
 
 	store.data["1"] = &domain.PromptManagement{ID: "1", Client: "Client A", Category: "X"}
@@ -184,7 +212,8 @@ func TestManagementService_List(t *testing.T) {
 
 func TestManagementService_Delete(t *testing.T) {
 	store := NewMockManagementStore()
-	svc := NewManagementService(store)
+	itemStore := NewMockItemStore()
+	svc := NewManagementService(nil, store, itemStore)
 	ctx := context.Background()
 
 	store.data["1"] = &domain.PromptManagement{ID: "1"}

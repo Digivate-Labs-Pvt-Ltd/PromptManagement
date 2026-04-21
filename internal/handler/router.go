@@ -36,6 +36,7 @@ func NewRouter(cfg RouterConfig) *http.ServeMux {
 
 	// Group Endpoints
 	mux.Handle("/prompts/create", authMW(cfg.Management.Create))
+	mux.Handle("/prompts/create-full", authMW(cfg.Management.CreateFull))
 	mux.Handle("/prompts/update", authMW(cfg.Management.Update))
 	mux.Handle("/prompts/get", authMW(cfg.Management.Get))
 	mux.Handle("/prompts/list", authMW(cfg.Management.List))

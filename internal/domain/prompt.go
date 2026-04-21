@@ -16,9 +16,10 @@ type PromptManagement struct {
 	ActiveItemID *string    `json:"active_item_id"`
 	CreatedByID  string     `json:"created_by_id"`
 	CreatedBy    string     `json:"created_by"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	DeletedAt    *time.Time `json:"-"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
+	Prompts      []*PromptItem `json:"prompts,omitempty"`
+	DeletedAt    *time.Time    `json:"-"`
 }
 
 // ManagementStore defines the interface for prompt management persistence.

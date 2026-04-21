@@ -158,3 +158,36 @@ func (h *ManagementHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	response.JSON(w, http.StatusOK, map[string]string{"message": "prompt group deleted successfully"})
 }
+
+// CreateFull handles the POST /prompts/create-full action.
+func (h *ManagementHandler) CreateFull(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	userID, ok := r.Context().Value(middleware.UserIDContextKey).(string)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var input service.BulkCreateRequest
+	if err := validator.DecodeAndValidate(r, &input); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	pm, err := h.service.CreateFull(r.Context(), input, userID)
+	if err != nil {
+		if errors.Is(err, domain.ErrValidation) {
+			response.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, "failed to create full prompt group")
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, pm)
+}
+
