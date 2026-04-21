@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -57,16 +58,21 @@ type loginRequest struct {
 	Password   string `json:"password"`
 }
 
+type loginResponse struct {
+	Value string `json:"Value"`
+	Error string `json:"Error"`
+}
+
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		response.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		h.sendLoginResponse(w, http.StatusMethodNotAllowed, "", "method not allowed")
 		return
 	}
 
 	var input loginRequest
 	err := validator.DecodeAndValidate(r, &input)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
+		h.sendLoginResponse(w, http.StatusBadRequest, "", err.Error())
 		return
 	}
 
@@ -74,14 +80,23 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	token, err := h.service.Login(r.Context(), input.Identifier, input.Password)
 	if err != nil {
 		if errors.Is(err, domain.ErrUnauthorized) {
-			response.Error(w, http.StatusUnauthorized, "invalid credentials")
+			h.sendLoginResponse(w, http.StatusUnauthorized, "", "invalid credentials")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "login failed")
+		h.sendLoginResponse(w, http.StatusInternalServerError, "", "login failed")
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]string{"token": token})
+	h.sendLoginResponse(w, http.StatusOK, token, "")
+}
+
+func (h *AuthHandler) sendLoginResponse(w http.ResponseWriter, status int, value, err string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(loginResponse{
+		Value: value,
+		Error: err,
+	})
 }
 
 // Refresh handles stateless token extensions.
