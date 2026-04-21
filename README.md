@@ -89,7 +89,7 @@ All authenticated endpoints require a header passed as:
   ```bash
   curl -X POST http://localhost:8080/auth/login \
        -H "Content-Type: application/json" \
-       -d '{"identifier":"test@example.com", "password":"password123"}'
+       -d '{"username":"testuser", "password":"password123"}'
   ```
 
 ### Prompt Management (Groups)
@@ -120,11 +120,17 @@ The `Management Groups` serve as the absolute parent logic directories.
        -d '{
          "client": "Acme",
          "use_case": "Support",
+         "document_type": "JSON",
+         "category": "Sales",
+         "stage_name": "Initial",
          "items": [
            {
              "question_key": "Q1",
              "prompt_text": "Analyze text",
-             "response_schema": {"type": "string"}
+             "vector_prompt": "Optional vector instruction",
+             "generation_config": {"temperature": 0.7},
+             "top_k": 5,
+             "change_log": "Initial seed"
            }
          ]
        }'

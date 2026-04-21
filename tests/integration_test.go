@@ -325,7 +325,13 @@ func TestIntegration_BulkCreateAndAggregatedFetch(t *testing.T) {
 			StageName:    "Alpha",
 		},
 		Items: []service.AddItemRequest{
-			{QuestionKey: "key1", PromptText: "Prompt 1"},
+			{
+				QuestionKey: "key1", 
+				PromptText: "Prompt 1",
+				ChangeLog: func(s string) *string { return &s }("Bulk init log"),
+				TopK: func(f float64) *float64 { return &f }(5.0),
+				RankingMethod: func(s string) *string { return &s }("cosine"),
+			},
 			{QuestionKey: "key2", PromptText: "Prompt 2"},
 		},
 	}
@@ -339,10 +345,18 @@ func TestIntegration_BulkCreateAndAggregatedFetch(t *testing.T) {
 		t.Errorf("Bulk creation verification failed. Items: %d", len(pm.Prompts))
 	}
 
-	// Verify auto-promotion
+	// Verify auto-promotion and field persistence
 	for _, p := range pm.Prompts {
 		if p.Status != "active" || p.VersionNo != "v1.0.0" {
 			t.Errorf("Auto-promotion failed for %s: %s (%s)", p.QuestionKey, p.Status, p.VersionNo)
+		}
+		if p.QuestionKey == "key1" {
+			if p.ChangeLog == nil || *p.ChangeLog != "Bulk init log" {
+				t.Errorf("ChangeLog persistence failed: expected 'Bulk init log', got %v", p.ChangeLog)
+			}
+			if p.TopK == nil || *p.TopK != 5.0 {
+				t.Errorf("TopK persistence failed: expected 5.0, got %v", p.TopK)
+			}
 		}
 	}
 

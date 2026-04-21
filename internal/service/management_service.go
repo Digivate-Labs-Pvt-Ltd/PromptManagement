@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"prompt-management/internal/domain"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ManagementService handles business logic for prompt management.
@@ -157,8 +158,8 @@ func (s *ManagementService) CreateFull(ctx context.Context, req BulkCreateReques
 		CreatedByID:  userID,
 	}
 
-	// Note: We need a way to pass the transaction down to the repo, 
-	// or perform the SQL here. Given the current repo structure, 
+	// Note: We need a way to pass the transaction down to the repo,
+	// or perform the SQL here. Given the current repo structure,
 	// we'll assume the repos are not yet transaction-aware for external Tx.
 	// For now, I will implement the SQL directly in the service's transaction context
 	// to ensure atomicity for this bulk operation.
@@ -167,7 +168,7 @@ func (s *ManagementService) CreateFull(ctx context.Context, req BulkCreateReques
 		INSERT INTO prompt_management (client, use_case, document_type, category, stage_name, created_by)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, updated_at`
-	
+
 	err = tx.QueryRow(ctx, groupQuery, pm.Client, pm.UseCase, pm.DocumentType, pm.Category, pm.StageName, userID).
 		Scan(&pm.ID, &pm.CreatedAt, &pm.UpdatedAt)
 	if err != nil {
@@ -184,11 +185,11 @@ func (s *ManagementService) CreateFull(ctx context.Context, req BulkCreateReques
 			INSERT INTO prompt_item (
 				management_id, question_key, prompt_text, vector_prompt, 
 				generation_config, response_schema, top_k, ranking_method, 
-				version_no, status, created_by
+				version_no, status, change_log, created_by
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 			RETURNING id`
-		
+
 		var itemID string
 		err = tx.QueryRow(ctx, itemQuery,
 			pm.ID,
@@ -201,14 +202,15 @@ func (s *ManagementService) CreateFull(ctx context.Context, req BulkCreateReques
 			itemReq.RankingMethod,
 			"v1.0.0",
 			"active", // Auto-promote to active
+			itemReq.ChangeLog,
 			userID,
 		).Scan(&itemID)
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert item %s: %w", itemReq.QuestionKey, err)
 		}
 
-		// Update the active pointer in the group to the LAST created item 
+		// Update the active pointer in the group to the LAST created item
 		// (Common pattern for initial creation)
 		_, err = tx.Exec(ctx, "UPDATE prompt_management SET active_item_id = $1 WHERE id = $2", itemID, pm.ID)
 		if err != nil {
@@ -223,4 +225,3 @@ func (s *ManagementService) CreateFull(ctx context.Context, req BulkCreateReques
 	// Set populated prompts for the response
 	return s.GetByID(ctx, pm.ID)
 }
-
