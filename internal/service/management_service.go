@@ -2,7 +2,13 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/jackc/pgx/v5"
 
 	"prompt-management/internal/domain"
 
@@ -120,12 +126,57 @@ func (s *ManagementService) GetByID(ctx context.Context, id string) (*domain.Pro
 		return nil, err
 	}
 
+	// Sort items by version_no DESC
+	sort.Slice(items, func(i, j int) bool {
+		return compareVersions(items[i].VersionNo, items[j].VersionNo) > 0
+	})
+
 	pm.Prompts = items
 	return pm, nil
 }
 
 func (s *ManagementService) List(ctx context.Context, filters domain.ListFilters) ([]*domain.PromptManagement, int, error) {
 	return s.repo.List(ctx, filters)
+}
+
+func (s *ManagementService) ListFull(ctx context.Context, filters domain.ListFilters) ([]*domain.PromptManagement, int, error) {
+	// 1. Fetch groups
+	groups, total, err := s.List(ctx, filters)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(groups) == 0 {
+		return groups, 0, nil
+	}
+
+	// 2. Collect IDs for batch fetching
+	ids := make([]string, len(groups))
+	for i, g := range groups {
+		ids[i] = g.ID
+	}
+
+	// 3. Batch fetch active items for these groups
+	items, err := s.itemRepo.GetActiveItemsByManagementIDs(ctx, ids)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 4. Map items back to their parent groups
+	itemMap := make(map[string][]*domain.PromptItem)
+	for _, item := range items {
+		itemMap[item.ManagementID] = append(itemMap[item.ManagementID], item)
+	}
+
+	for _, g := range groups {
+		if val, ok := itemMap[g.ID]; ok {
+			g.Prompts = val
+		} else {
+			g.Prompts = []*domain.PromptItem{} // Ensure empty slice instead of nil for JSON
+		}
+	}
+
+	return groups, total, nil
 }
 
 func (s *ManagementService) Delete(ctx context.Context, id string) error {
@@ -141,44 +192,61 @@ func (s *ManagementService) CreateFull(ctx context.Context, req BulkCreateReques
 		return nil, fmt.Errorf("%w: at least one prompt item is required", domain.ErrValidation)
 	}
 
-	// 2. Start Transaction
+	// 2. Find or Create Group
+	pm, err := s.repo.GetByBusinessKey(ctx, req.Client, req.UseCase, req.DocumentType)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			pm = &domain.PromptManagement{
+				Client:       req.Client,
+				UseCase:      req.UseCase,
+				DocumentType: req.DocumentType,
+				Category:     req.Category,
+				StageName:    req.StageName,
+				CreatedByID:  userID,
+			}
+			if err := s.repo.Insert(ctx, pm); err != nil {
+				return nil, fmt.Errorf("failed to create new group: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to lookup existing group: %w", err)
+		}
+	} else {
+		// Update existing group metadata
+		pm.Category = req.Category
+		pm.StageName = req.StageName
+		if err := s.repo.Update(ctx, pm); err != nil {
+			return nil, fmt.Errorf("failed to update existing group metadata: %w", err)
+		}
+	}
+
+	// 3. Start Transaction for items
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	// 3. Create Group
-	pm := &domain.PromptManagement{
-		Client:       req.Client,
-		UseCase:      req.UseCase,
-		DocumentType: req.DocumentType,
-		Category:     req.Category,
-		StageName:    req.StageName,
-		CreatedByID:  userID,
-	}
-
-	// Note: We need a way to pass the transaction down to the repo,
-	// or perform the SQL here. Given the current repo structure,
-	// we'll assume the repos are not yet transaction-aware for external Tx.
-	// For now, I will implement the SQL directly in the service's transaction context
-	// to ensure atomicity for this bulk operation.
-
-	groupQuery := `
-		INSERT INTO prompt_management (client, use_case, document_type, category, stage_name, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, created_at, updated_at`
-
-	err = tx.QueryRow(ctx, groupQuery, pm.Client, pm.UseCase, pm.DocumentType, pm.Category, pm.StageName, userID).
-		Scan(&pm.ID, &pm.CreatedAt, &pm.UpdatedAt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert group: %w", err)
-	}
-
 	// 4. Create Items
 	for _, itemReq := range req.Items {
 		if itemReq.QuestionKey == "" || itemReq.PromptText == "" {
 			return nil, fmt.Errorf("%w: item missing required fields", domain.ErrValidation)
+		}
+
+		// Figure out the version number
+		// Note: Since we are in a transaction but using service-level calls (which aren't tx-aware),
+		// we'll fetch the latest version manually using the transaction context.
+		var latestVersion *string
+		err = tx.QueryRow(ctx, "SELECT version_no FROM prompt_item WHERE management_id = $1 AND question_key = $2 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1", pm.ID, itemReq.QuestionKey).Scan(&latestVersion)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("failed to check latest version for %s: %w", itemReq.QuestionKey, err)
+		}
+
+		nextVersion := bumpVersion(latestVersion)
+
+		// Archive any current active versions for this question key in this group
+		_, err = tx.Exec(ctx, "UPDATE prompt_item SET status = 'archived', updated_at = NOW() WHERE management_id = $1 AND question_key = $2 AND status = 'active'", pm.ID, itemReq.QuestionKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to archive previous active version for %s: %w", itemReq.QuestionKey, err)
 		}
 
 		itemQuery := `
@@ -200,7 +268,7 @@ func (s *ManagementService) CreateFull(ctx context.Context, req BulkCreateReques
 			itemReq.ResponseSchema,
 			itemReq.TopK,
 			itemReq.RankingMethod,
-			"v1.0.0",
+			nextVersion,
 			"active", // Auto-promote to active
 			itemReq.ChangeLog,
 			userID,
@@ -211,7 +279,6 @@ func (s *ManagementService) CreateFull(ctx context.Context, req BulkCreateReques
 		}
 
 		// Update the active pointer in the group to the LAST created item
-		// (Common pattern for initial creation)
 		_, err = tx.Exec(ctx, "UPDATE prompt_management SET active_item_id = $1 WHERE id = $2", itemID, pm.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update active pointer: %w", err)
@@ -222,6 +289,25 @@ func (s *ManagementService) CreateFull(ctx context.Context, req BulkCreateReques
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Set populated prompts for the response
 	return s.GetByID(ctx, pm.ID)
+}
+
+// compareVersions returns 1 if v1 > v2, -1 if v1 < v2, and 0 if equal.
+func compareVersions(v1, v2 string) int {
+	clean1 := strings.TrimPrefix(v1, "v")
+	clean2 := strings.TrimPrefix(v2, "v")
+	p1 := strings.Split(clean1, ".")
+	p2 := strings.Split(clean2, ".")
+
+	for i := 0; i < len(p1) && i < len(p2); i++ {
+		n1, _ := strconv.Atoi(p1[i])
+		n2, _ := strconv.Atoi(p2[i])
+		if n1 > n2 {
+			return 1
+		}
+		if n1 < n2 {
+			return -1
+		}
+	}
+	return 0
 }

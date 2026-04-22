@@ -104,6 +104,38 @@ func (r *managementRepo) GetByID(ctx context.Context, id string) (*domain.Prompt
 	return &pm, nil
 }
 
+func (r *managementRepo) GetByBusinessKey(ctx context.Context, client, useCase, docType string) (*domain.PromptManagement, error) {
+	query := `
+		SELECT pm.id, pm.client, pm.use_case, pm.document_type, pm.category, pm.stage_name, pm.active_item_id, pm.created_by, u.username, pm.created_at, pm.updated_at
+		FROM prompt_management pm
+		JOIN users u ON pm.created_by = u.id
+		WHERE pm.client = $1 AND pm.use_case = $2 AND pm.document_type = $3 AND pm.deleted_at IS NULL`
+
+	var pm domain.PromptManagement
+	err := r.db.QueryRow(ctx, query, client, useCase, docType).Scan(
+		&pm.ID,
+		&pm.Client,
+		&pm.UseCase,
+		&pm.DocumentType,
+		&pm.Category,
+		&pm.StageName,
+		&pm.ActiveItemID,
+		&pm.CreatedByID,
+		&pm.CreatedBy,
+		&pm.CreatedAt,
+		&pm.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("could not get prompt group by business key: %w", err)
+	}
+
+	return &pm, nil
+}
+
 func (r *managementRepo) List(ctx context.Context, f domain.ListFilters) ([]*domain.PromptManagement, int, error) {
 	baseQuery := `
 		FROM prompt_management pm

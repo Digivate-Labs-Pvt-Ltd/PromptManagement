@@ -48,6 +48,7 @@ func (r *itemRepo) Insert(ctx context.Context, item *domain.PromptItem) error {
 		item.ChangeLog,
 		item.CreatedByID,
 	).Scan(&item.ID, &item.CreatedByID, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt)
+	item.IsActive = (item.Status == "active")
 
 	if err != nil {
 		return fmt.Errorf("could not insert prompt item: %w", err)
@@ -86,6 +87,7 @@ func (r *itemRepo) GetByID(ctx context.Context, id string) (*domain.PromptItem, 
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
+	item.IsActive = (item.Status == "active")
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -189,10 +191,60 @@ func (r *itemRepo) List(ctx context.Context, f domain.ItemListFilters) ([]*domai
 		if err != nil {
 			return nil, 0, fmt.Errorf("could not scan prompt item: %w", err)
 		}
+		item.IsActive = (item.Status == "active")
 		items = append(items, &item)
 	}
 
 	return items, total, nil
+}
+
+func (r *itemRepo) GetActiveItemsByManagementIDs(ctx context.Context, ids []string) ([]*domain.PromptItem, error) {
+	query := `
+		SELECT 
+			i.id, i.management_id, i.question_key, i.prompt_text, i.vector_prompt,
+			i.generation_config, i.response_schema, i.top_k, i.ranking_method,
+			i.version_no, i.status, i.change_log, i.created_by, u.username,
+			i.created_at, i.updated_at
+		FROM prompt_item i
+		JOIN users u ON i.created_by = u.id
+		WHERE i.management_id = ANY($1) AND i.status = 'active' AND i.deleted_at IS NULL
+		ORDER BY i.management_id, i.question_key`
+
+	rows, err := r.db.Query(ctx, query, ids)
+	if err != nil {
+		return nil, fmt.Errorf("could not batch query active prompt items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []*domain.PromptItem
+	for rows.Next() {
+		var item domain.PromptItem
+		err := rows.Scan(
+			&item.ID,
+			&item.ManagementID,
+			&item.QuestionKey,
+			&item.PromptText,
+			&item.VectorPrompt,
+			&item.GenerationConfig,
+			&item.ResponseSchema,
+			&item.TopK,
+			&item.RankingMethod,
+			&item.VersionNo,
+			&item.Status,
+			&item.ChangeLog,
+			&item.CreatedByID,
+			&item.CreatedBy,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("could not scan batch prompt item: %w", err)
+		}
+		item.IsActive = (item.Status == "active")
+		items = append(items, &item)
+	}
+
+	return items, nil
 }
 
 func (r *itemRepo) Promote(ctx context.Context, managementID string, itemID string) error {

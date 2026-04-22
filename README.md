@@ -10,7 +10,7 @@ A production-grade, versioned Prompt Management Service built in native Go (`net
 - **Stateless Authentication**: JWT (`HS256`) access with Secure Password Hashing (`bcrypt`).
 - **Immutable History**: Prompt Updates are natively logged as semantic-versioned, immutable rows (e.g. `v1.0.0` -> `v1.0.1`).
 - **Transactional Promotions**: Push specific prompt versions from `draft` to `active` via sub-second, atomic PostgreSQL bounds.
-- **Strict Method Scopes**: Completely `POST`-driven API routes encapsulating complex state transformations.
+- **Strict Uniqueness**: Automatically enforces `(client, use_case, document_type)` uniqueness, providing "Find-or-Create" logic for bulk operations.
 - **Dependency-Free HTTP**: Native Go 1.22+ `ServeMux` implementation without external heavy-weight frameworks like Gin or Fiber.
 
 ---
@@ -103,7 +103,7 @@ The `Management Groups` serve as the absolute parent logic directories.
   ```
 - **`POST /prompts/update`** - Update overarching details excluding direct query prompts.
 - **`POST /prompts/list`** - Fetches paginated directories of active mappings merging User interactions.
-- **`POST /prompts/get`** - Retrieves detailed group metadata plus all associated prompt versions (Aggregated Fetch).
+- **`POST /prompts/get`** - Retrieves detailed group metadata plus all associated prompt versions (Aggregated Fetch). Results are sorted by `version_no` DESC to support side-by-side UI comparisons.
   ```bash
   curl -X POST http://localhost:8080/prompts/get \
        -H "Content-Type: application/json" \
@@ -137,8 +137,17 @@ The `Management Groups` serve as the absolute parent logic directories.
   ```
   *Note: Prompts created via this endpoint are automatically promoted to `active` status (`v1.0.0`).*
 
+- **`POST /prompts/list-full`** - Fetches a paginated list of all management groups nested with their current **Active** prompt items.
+  ```bash
+  curl -X POST http://localhost:8080/prompts/list-full \
+       -H "Content-Type: application/json" \
+       -H "Authorization: Bearer <your-jwt-token>" \
+       -d '{"client":"Amazon", "page":1, "per_page":10}'
+  ```
+  *Note: This endpoint is optimized for bulk editing and state management in the UI.*
+
 ### Prompt Items (Versions)
-Prompt `Items` operate within a given Management Group, housing infinite immutable execution iterations.
+Prompt `Items` operate within a given Management Group, housing infinite immutable execution iterations. All items include an `is_active` boolean field for easy UI identification.
 - **`POST /prompts/items/add`** - Add a target representation triggering automated `Version Auto-bumping` (`v.1.0.X`).
   ```bash
   curl -X POST http://localhost:8080/prompts/items/add \
